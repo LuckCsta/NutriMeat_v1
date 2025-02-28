@@ -55,14 +55,20 @@ app.get('/api/ranking/:nutriente', (req, res) => {
       nome,
       valor: dados[nutriente]
     }))
-    .sort((a, b) => ordem === 'desc' ? b.valor - a.valor : a.valor - b.valor);
+    .sort((a, b) => {
+      // Tratar valores nulos
+      if (a.valor === null && b.valor === null) return 0;
+      if (a.valor === null) return ordem === 'desc' ? 1 : -1;
+      if (b.valor === null) return ordem === 'desc' ? -1 : 1;
+      return ordem === 'desc' ? b.valor - a.valor : a.valor - b.valor;
+    });
 
   res.json(ranking);
 });
 
 app.get('/api/sugestoes/:objetivo', (req, res) => {
   const { objetivo } = req.params;
-  
+
   if (!objetivos[objetivo]) {
     return res.status(400).json({ error: 'Objetivo inválido' });
   }
@@ -70,10 +76,13 @@ app.get('/api/sugestoes/:objetivo', (req, res) => {
   const criterios = objetivos[objetivo];
   const pontuacoes = Object.entries(carnesData).map(([nome, dados]) => {
     let pontuacao = 0;
-    
+
     for (const [nutriente, criterio] of Object.entries(criterios)) {
       const valor = dados[nutriente];
-      
+
+      // Pular valores nulos
+      if (valor === null) continue;
+
       if (criterio.min && valor >= criterio.min) {
         pontuacao += criterio.peso;
       }
@@ -98,7 +107,7 @@ app.get('/api/sugestoes/:objetivo', (req, res) => {
 
 app.post('/api/comparar', (req, res) => {
   const { carnes } = req.body;
-  
+
   if (!carnes || carnes.length === 0) {
     return res.status(400).json({ error: 'Selecione pelo menos uma carne!' });
   }
@@ -117,12 +126,20 @@ app.post('/api/comparar', (req, res) => {
 
     for (const carne of carnes) {
       const valor = carnesData[carne][nutriente];
-      const diff = carne === carneBase ? 0 : ((valor - valorBase) / valorBase) * 100;
 
-      resultados[nutriente][carne] = {
-        valor,
-        diferenca: diff
-      };
+      // Tratar valores nulos
+      if (valor === null || valorBase === null) {
+        resultados[nutriente][carne] = {
+          valor,
+          diferenca: null
+        };
+      } else {
+        const diff = carne === carneBase ? 0 : ((valor - valorBase) / valorBase) * 100;
+        resultados[nutriente][carne] = {
+          valor,
+          diferenca: diff
+        };
+      }
     }
   }
 

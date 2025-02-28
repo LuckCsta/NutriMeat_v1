@@ -1,34 +1,61 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NutriMeat 🥩 - Comparador Nutricional de Carnes</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.7.1/jspdf.plugin.autotable.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.18.5/package/dist/xlsx.full.min.js"></script>
     <style>
-        .positive { color: #4CAF50; }
-        .negative { color: #E53935; }
+        .positive { color: #4CAF50 !important; }
+        .negative { color: #E53935 !important; }
         canvas {
             max-width: 100%;
             margin: 20px 0;
         }
         .nav-tabs .nav-link {
-            color: #0288D1;
+            color: #000000;
         }
         .nav-tabs .nav-link.active {
-            color: #03A9F4;
+            color: #000000;
             font-weight: bold;
+        }
+        .theme-switch {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+        }
+        .btn-primary {
+            background-color: #D32F2F;  /* Vermelho forte e elegante */
+            border-color: #D32F2F;
+        }
+        .btn-primary:hover {
+            background-color: #B71C1C;  /* Tom mais escuro para hover */
+            border-color: #B71C1C;
+        }
+        .btn-success {
+            background-color: #2196F3;
+            border-color: #2196F3;
+        }
+        .btn-success:hover {
+            background-color: #1976D2;
+            border-color: #1976D2;
         }
     </style>
 </head>
 <body>
+    <div class="theme-switch">
+        <button class="btn btn-outline-primary" onclick="toggleTheme()">
+            <span id="themeIcon">🌙</span>
+        </button>
+    </div>
+
     <div class="container py-4">
         <h1 class="text-center mb-4">NutriMeat 🥩</h1>
-        
+
         <ul class="nav nav-tabs mb-4" id="myTab" role="tablist">
             <li class="nav-item" role="presentation">
                 <button class="nav-link active" id="comparar-tab" data-bs-toggle="tab" data-bs-target="#comparar" type="button" role="tab">
@@ -45,6 +72,16 @@
                     Objetivos
                 </button>
             </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="dicas-tab" data-bs-toggle="tab" data-bs-target="#dicas" type="button" role="tab">
+                    Dicas
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="calculadora-tab" data-bs-toggle="tab" data-bs-target="#calculadora" type="button" role="tab">
+                    Calculadora
+                </button>
+            </li>
         </ul>
 
         <div class="tab-content" id="myTabContent">
@@ -52,7 +89,7 @@
             <div class="tab-pane fade show active" id="comparar" role="tabpanel">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Selecione as carnes para comparação</h5>
+                        <h5 class="card-title">Selecione até 3 carnes para comparação</h5>
                         <div class="row g-3" id="selectContainer"></div>
                         <button class="btn btn-primary mt-3" onclick="compararCarnes()">Comparar</button>
                     </div>
@@ -82,8 +119,7 @@
                     <div class="card mt-4">
                         <div class="card-body">
                             <h5 class="card-title">Gráficos Comparativos</h5>
-                            <canvas id="graficoProteinas"></canvas>
-                            <canvas id="graficoGorduras"></canvas>
+                            <div id="graficosContainer"></div>
                         </div>
                     </div>
                 </div>
@@ -93,7 +129,7 @@
             <div class="tab-pane fade" id="ranking" role="tabpanel">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Ranking por Nutriente</h5>
+                        <h5 class="card-title">Ranking por nutrientes</h5>
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <select class="form-select" id="nutrienteSelect">
@@ -117,6 +153,10 @@
                             </div>
                         </div>
                         <button class="btn btn-primary mt-3" onclick="gerarRanking()">Gerar Ranking</button>
+                        <div class="mb-3 mt-3">
+                            <button class="btn btn-success me-2" onclick="exportarRankingPDF()">Exportar Ranking PDF</button>
+                            <button class="btn btn-success" onclick="exportarRankingExcel()">Exportar Ranking Excel</button>
+                        </div>
                         <div id="rankingResultado" class="mt-4"></div>
                     </div>
                 </div>
@@ -126,7 +166,7 @@
             <div class="tab-pane fade" id="objetivos" role="tabpanel">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Sugestões por Objetivo</h5>
+                        <h5 class="card-title">Sugestões de melhores carnes por objetivo</h5>
                         <div class="row g-3">
                             <div class="col-md-12">
                                 <select class="form-select" id="objetivoSelect">
@@ -137,42 +177,256 @@
                             </div>
                         </div>
                         <button class="btn btn-primary mt-3" onclick="buscarSugestoes()">Buscar Sugestões</button>
+                        <div class="mb-3 mt-3">
+                            <button class="btn btn-success me-2" onclick="exportarSugestoesPDF()">Exportar Sugestões PDF</button>
+                            <button class="btn btn-success" onclick="exportarSugestoesExcel()">Exportar Sugestões Excel</button>
+                        </div>
                         <div id="sugestoesResultado" class="mt-4"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aba de Dicas -->
+            <div class="tab-pane fade" id="dicas" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Guia Nutricional de Carnes</h5>
+
+                        <div class="accordion" id="dicasAccordion">
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#digestibilidade">
+                                        Índice de Digestibilidade
+                                    </button>
+                                </h2>
+                                <div id="digestibilidade" class="accordion-collapse collapse show">
+                                    <div class="accordion-body">
+                                        <h6>Carnes Magras (Fácil Digestão):</h6>
+                                        <ul>
+                                            <li>Peito de frango</li>
+                                            <li>Filé mignon</li>
+                                            <li>Patinho</li>
+                                            <li>Peito de peru</li>
+                                            <li>Tilápia</li>
+                                        </ul>
+
+                                        <h6>Carnes Gordurosas (Digestão mais lenta):</h6>
+                                        <ul>
+                                            <li>Picanha</li>
+                                            <li>Costela</li>
+                                            <li>Linguiça</li>
+                                            <li>Bacon</li>
+                                            <li>Salmão (gordura boa)</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#fonteCarne">
+                                        Fonte da Carne
+                                    </button>
+                                </h2>
+                                <div id="fonteCarne" class="accordion-collapse collapse">
+                                    <div class="accordion-body">
+                                        <h6>Carne Vermelha:</h6>
+                                        <ul>
+                                            <li>Orgânica/Grass-fed:
+                                                <ul>
+                                                    <li>Maior teor de ômega-3</li>
+                                                    <li>Menos hormônios</li>
+                                                    <li>Melhor perfil de gorduras</li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+
+                                        <h6>Peixes:</h6>
+                                        <ul>
+                                            <li>Selvagens:
+                                                <ul>
+                                                    <li>Melhor perfil de ácidos graxos</li>
+                                                    <li>Maior teor de ômega-3</li>
+                                                    <li>Menos contaminantes</li>
+                                                </ul>
+                                            </li>
+                                            <li>Criados em cativeiro:
+                                                <ul>
+                                                    <li>Mais acessíveis</li>
+                                                    <li>Controle de qualidade</li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+
+                                        <h6>Frango:</h6>
+                                        <ul>
+                                            <li>Caipira:
+                                                <ul>
+                                                    <li>Menos hormônios</li>
+                                                    <li>Menos antibióticos</li>
+                                                    <li>Melhor qualidade de vida animal</li>
+                                                </ul>
+                                            </li>
+                                            <li>Industrializado:
+                                                <ul>
+                                                    <li>Mais acessível</li>
+                                                    <li>Padronização</li>
+                                                </ul>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item">
+                                <h2 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#dicasAdicionais">
+                                        Dicas Adicionais
+                                    </button>
+                                </h2>
+                                <div id="dicasAdicionais" class="accordion-collapse collapse">
+                                    <div class="accordion-body">
+                                        <h6>Preparação:</h6>
+                                        <ul>
+                                            <li>Grelhados > Fritos</li>
+                                            <li>Cozidos > Empanados</li>
+                                            <li>Evite excesso de sal</li>
+                                            <li>Use temperos naturais</li>
+                                        </ul>
+
+                                        <h6>Armazenamento:</h6>
+                                        <ul>
+                                            <li>Refrigerador: até 3 dias</li>
+                                            <li>Congelador: até 6 meses</li>
+                                            <li>Sempre em recipientes fechados</li>
+                                            <li>Evite recongelar</li>
+                                        </ul>
+
+                                        <h6>Consumo:</h6>
+                                        <ul>
+                                            <li>Varie os tipos de carne</li>
+                                            <li>Balance proteína animal e vegetal</li>
+                                            <li>Considere seu objetivo (hipertrofia, emagrecimento)</li>
+                                            <li>Atenção às porções</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Aba da Calculadora -->
+            <div class="tab-pane fade" id="calculadora" role="tabpanel">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Calculadora de Necessidade Energética</h5>
+
+                        <form id="calculadoraForm" class="row g-3">
+                            <div class="col-md-6">
+                                <label for="peso" class="form-label">Peso (kg)</label>
+                                <input type="number" class="form-control" id="peso" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="altura" class="form-label">Altura (cm)</label>
+                                <input type="number" class="form-control" id="altura" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="idade" class="form-label">Idade</label>
+                                <input type="number" class="form-control" id="idade" required>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="sexo" class="form-label">Sexo</label>
+                                <select class="form-select" id="sexo" required>
+                                    <option value="M">Masculino</option>
+                                    <option value="F">Feminino</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="atividade" class="form-label">Nível de Atividade</label>
+                                <select class="form-select" id="atividade" required>
+                                    <option value="1.2">Sedentário</option>
+                                    <option value="1.375">Levemente ativo</option>
+                                    <option value="1.55">Moderadamente ativo</option>
+                                    <option value="1.725">Muito ativo</option>
+                                    <option value="1.9">Extremamente ativo</option>
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">Calcular</button>
+                            </div>
+                        </form>
+
+                        <div id="resultadoCalculadora" class="mt-4" style="display: none;">
+                            <h6>Resultados:</h6>
+                            <div class="table-responsive">
+                                <table class="table">
+                                    <tbody>
+                                        <tr>
+                                            <th>Taxa Metabólica Basal (TMB)</th>
+                                            <td id="tmb"></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Necessidade Calórica Diária</th>
+                                            <td id="necessidadeCalorica"></td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         let carnesDisponiveis = [];
         let dadosComparacao = null;
+        let dadosRanking = null;
+        let dadosSugestoes = null;
+        const coresCarnes = ['#8A2BE2', '#9370DB', '#6495ED']; // Lilás, roxo e azul
+
+        // Definir quais nutrientes são positivos (mais é melhor) e quais são negativos (menos é melhor)
+        const nutrientesPositivos = ['proteinas', 'calcio', 'ferro', 'zinco', 'vitamina_b12'];
+        const nutrientesNegativos = ['calorias', 'gorduras_totais', 'gorduras_saturadas', 'colesterol', 'sodio'];
 
         async function inicializar() {
-            const response = await fetch('/api/carnes');
-            const dados = await response.json();
-            carnesDisponiveis = Object.keys(dados).sort();
-            
-            const container = document.getElementById('selectContainer');
-            
-            for (let i = 0; i < 3; i++) {
-                const col = document.createElement('div');
-                col.className = 'col-md-4';
-                
-                const select = document.createElement('select');
-                select.className = 'form-select carne-select';
-                select.id = `carne${i + 1}`;
-                
-                select.innerHTML = `
-                    <option value="">Selecione uma carne</option>
-                    ${carnesDisponiveis.map(carne => 
-                        `<option value="${carne}">${carne}</option>`
-                    ).join('')}
-                `;
-                
-                col.appendChild(select);
-                container.appendChild(col);
+            try {
+                const response = await fetch('/api/carnes');
+                const dados = await response.json();
+                carnesDisponiveis = Object.keys(dados).sort();
+
+                const container = document.getElementById('selectContainer');
+                if (!container) return;
+
+                for (let i = 0; i < 3; i++) {
+                    const col = document.createElement('div');
+                    col.className = 'col-md-4';
+
+                    const select = document.createElement('select');
+                    select.className = 'form-select carne-select';
+                    select.id = `carne${i + 1}`;
+
+                    select.innerHTML = `
+                        <option value="">Selecione uma carne</option>
+                        ${carnesDisponiveis.map(carne =>
+                            `<option value="${carne}">${carne}</option>`
+                        ).join('')}
+                    `;
+
+                    col.appendChild(select);
+                    container.appendChild(col);
+                }
+            } catch (error) {
+                console.error("Erro ao inicializar:", error);
             }
         }
 
@@ -186,25 +440,30 @@
                 return;
             }
 
-            const response = await fetch('/api/comparar', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ carnes })
-            });
+            try {
+                const response = await fetch('/api/comparar', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ carnes })
+                });
 
-            const data = await response.json();
+                const data = await response.json();
 
-            if (data.error) {
-                alert(data.error);
-                return;
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                dadosComparacao = data.resultados;
+                atualizarTabela(data.resultados, carnes);
+                atualizarGraficos(data.resultados, carnes);
+                document.getElementById('resultado').style.display = 'block';
+            } catch (error) {
+                console.error("Erro ao comparar carnes:", error);
+                alert("Ocorreu um erro ao comparar as carnes.");
             }
-
-            dadosComparacao = data.resultados;
-            atualizarTabela(data.resultados, carnes);
-            atualizarGraficos(data.resultados, carnes);
-            document.getElementById('resultado').style.display = 'block';
         }
 
         function atualizarTabela(resultados, carnes) {
@@ -225,15 +484,33 @@
 
                 carnes.forEach(carne => {
                     const valor = valores[carne];
-                    let texto = valor.valor.toFixed(1);
-                    
-                    if (carne !== carnes[0]) {
-                        const diff = valor.diferenca;
-                        const classe = diff > 0 ? 'positive' : 'negative';
-                        texto += ` <span class="${classe}">(${diff.toFixed(1)}%)</span>`;
+                    if (valor && valor.valor !== null) {
+                        let texto = valor.valor.toFixed(1);
+
+                        if (carne !== carnes[0]) {
+                            const diff = valor.diferenca;
+
+                            // Determinar se a diferença é positiva ou negativa com base no tipo de nutriente
+                            let isPositive;
+                            if (nutrientesPositivos.includes(nutriente)) {
+                                // Para nutrientes positivos (proteínas, cálcio, etc.), mais é melhor
+                                isPositive = diff > 0;
+                            } else if (nutrientesNegativos.includes(nutriente)) {
+                                // Para nutrientes negativos (calorias, gorduras, etc.), menos é melhor
+                                isPositive = diff < 0;
+                            } else {
+                                // Para outros nutrientes, usar a lógica padrão
+                                isPositive = diff > 0;
+                            }
+
+                            const classe = isPositive ? 'positive' : 'negative';
+                            texto += ` <span class="${classe}">(${diff.toFixed(1)}%)</span>`;
+                        }
+
+                        tr.innerHTML += `<td>${texto}</td>`;
+                    } else {
+                        tr.innerHTML += `<td>N/A</td>`;
                     }
-                    
-                    tr.innerHTML += `<td>${texto}</td>`;
                 });
 
                 tbody.appendChild(tr);
@@ -241,139 +518,331 @@
         }
 
         function atualizarGraficos(resultados, carnes) {
-            const proteinas = carnes.map(carne => resultados.proteinas[carne].valor);
-            const gorduras = carnes.map(carne => resultados.gorduras_totais[carne].valor);
+            const container = document.getElementById('graficosContainer');
+            container.innerHTML = '';
 
-            const configProteinas = {
-                type: 'bar',
-                data: {
-                    labels: carnes,
-                    datasets: [{
-                        label: 'Proteínas (g)',
-                        data: proteinas,
-                        backgroundColor: '#4CAF50'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Comparação de Proteínas'
+            for (const [nutriente, valores] of Object.entries(resultados)) {
+                const canvas = document.createElement('canvas');
+                container.appendChild(canvas);
+
+                // Filtrar valores nulos
+                const dadosGrafico = carnes.map(carne => {
+                    const valor = valores[carne];
+                    return valor && valor.valor !== null ? valor.valor : 0;
+                });
+
+                new Chart(canvas, {
+                    type: 'bar',
+                    data: {
+                        labels: carnes,
+                        datasets: [{
+                            label: nutriente.replace('_', ' ').toUpperCase(),
+                            data: dadosGrafico,
+                            backgroundColor: carnes.map((_, i) => coresCarnes[i % coresCarnes.length])
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: nutriente.replace('_', ' ').toUpperCase()
+                            }
                         }
                     }
-                }
-            };
-
-            const configGorduras = {
-                type: 'bar',
-                data: {
-                    labels: carnes,
-                    datasets: [{
-                        label: 'Gorduras Totais (g)',
-                        data: gorduras,
-                        backgroundColor: '#FFA726'
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Comparação de Gorduras Totais'
-                        }
-                    }
-                }
-            };
-
-            new Chart(document.getElementById('graficoProteinas'), configProteinas);
-            new Chart(document.getElementById('graficoGorduras'), configGorduras);
+                });
+            }
         }
 
         async function gerarRanking() {
             const nutriente = document.getElementById('nutrienteSelect').value;
             const ordem = document.getElementById('ordemSelect').value;
-            
-            const response = await fetch(`/api/ranking/${nutriente}?ordem=${ordem}`);
-            const ranking = await response.json();
-            
-            const resultado = document.getElementById('rankingResultado');
-            resultado.innerHTML = `
-                <div class="table-responsive">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Posição</th>
-                                <th>Carne</th>
-                                <th>${nutriente.replace('_', ' ').toUpperCase()}</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${ranking.map((item, index) => `
+
+            try {
+                const response = await fetch(`/api/ranking/${nutriente}?ordem=${ordem}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                dadosRanking = data;
+                const container = document.getElementById('rankingResultado');
+                container.innerHTML = `
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
                                 <tr>
-                                    <td>${index + 1}º</td>
-                                    <td>${item.nome}</td>
-                                    <td>${item.valor.toFixed(1)}</td>
+                                    <th>Posição</th>
+                                    <th>Carne</th>
+                                    <th>Valor</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
+                            </thead>
+                            <tbody>
+                                ${data.map((item, index) => `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td>${item.nome}</td>
+                                        <td>${item.valor !== null ? item.valor.toFixed(1) : 'N/A'}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Erro ao gerar ranking:', error);
+                alert('Erro ao gerar o ranking');
+            }
         }
 
         async function buscarSugestoes() {
             const objetivo = document.getElementById('objetivoSelect').value;
-            
-            const response = await fetch(`/api/sugestoes/${objetivo}`);
-            const sugestoes = await response.json();
-            
-            const resultado = document.getElementById('sugestoesResultado');
-            resultado.innerHTML = `
-                <div class="alert alert-info">
-                    Melhores opções para ${objetivo}:
-                </div>
-                <div class="table-responsive">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>Posição</th>
-                                <th>Carne</th>
-                                <th>Pontuação</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${sugestoes.map((item, index) => `
+
+            try {
+                const response = await fetch(`/api/sugestoes/${objetivo}`);
+                const data = await response.json();
+
+                if (data.error) {
+                    alert(data.error);
+                    return;
+                }
+
+                dadosSugestoes = data;
+                const container = document.getElementById('sugestoesResultado');
+
+                // Explicação do cálculo baseado no objetivo selecionado
+                let explicacao = '';
+                if (objetivo === 'hipertrofia') {
+                    explicacao = `
+                        <div class="alert alert-info mb-3">
+                            <h6>Como calculamos as sugestões para Hipertrofia:</h6>
+                            <ul>
+                                <li>Priorizamos carnes com alto teor de proteínas (mínimo 25g, peso 2x)</li>
+                                <li>Consideramos calorias suficientes (mínimo 150kcal, peso 1x)</li>
+                                <li>Penalizamos gorduras totais excessivas (máximo 15g, peso -1x)</li>
+                            </ul>
+                        </div>
+                    `;
+                } else if (objetivo === 'emagrecimento') {
+                    explicacao = `
+                        <div class="alert alert-info mb-3">
+                            <h6>Como calculamos as sugestões para Emagrecimento:</h6>
+                            <ul>
+                                <li>Priorizamos carnes com baixas calorias (máximo 200kcal, peso -2x)</li>
+                                <li>Valorizamos proteínas adequadas (mínimo 20g, peso 1.5x)</li>
+                                <li>Penalizamos gorduras totais (máximo 10g, peso -1.5x)</li>
+                            </ul>
+                        </div>
+                    `;
+                } else if (objetivo === 'equilibrada') {
+                    explicacao = `
+                        <div class="alert alert-info mb-3">
+                            <h6>Como calculamos as sugestões para Dieta Equilibrada:</h6>
+                            <ul>
+                                <li>Buscamos proteínas adequadas (mínimo 20g, peso 1x)</li>
+                                <li>Valorizamos gorduras balanceadas (ideal 10g, peso 1x)</li>
+                                <li>Consideramos calorias moderadas (ideal 200kcal, peso 1x)</li>
+                            </ul>
+                        </div>
+                    `;
+                }
+
+                container.innerHTML = explicacao + `
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
                                 <tr>
-                                    <td>${index + 1}º</td>
-                                    <td>${item.nome}</td>
-                                    <td>${item.pontuacao.toFixed(2)}</td>
+                                    <th>Posição</th>
+                                    <th>Carne</th>
+                                    <th>Pontuação</th>
                                 </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                </div>
-            `;
+                            </thead>
+                            <tbody>
+                                ${data.map((item, index) => `
+                                    <tr>
+                                        <td>${index + 1}</td>
+                                        <td>${item.nome}</td>
+                                        <td>${item.pontuacao.toFixed(2)}</td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Erro ao buscar sugestões:', error);
+                alert('Erro ao buscar sugestões');
+            }
         }
 
         function exportarPDF() {
+            if (!dadosComparacao) return;
+
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
-            
-            const tabela = document.getElementById('tabelaComparacao');
-            doc.autoTable({ html: tabela });
-            
-            doc.save('comparacao-nutricional.pdf');
+
+            doc.text('Comparação Nutricional de Carnes', 14, 15);
+
+            const carnes = Object.keys(Object.values(dadosComparacao)[0]);
+            const dados = Object.entries(dadosComparacao).map(([nutriente, valores]) => {
+                return [
+                    nutriente.replace('_', ' ').toUpperCase(),
+                    ...carnes.map(carne => {
+                        const valor = valores[carne];
+                        return valor && valor.valor !== null ? valor.valor.toFixed(1) : 'N/A';
+                    })
+                ];
+            });
+
+            doc.autoTable({
+                head: [['Nutriente', ...carnes]],
+                body: dados,
+                startY: 25
+            });
+
+            doc.save('comparacao_nutricional.pdf');
         }
 
         function exportarExcel() {
+            if (!dadosComparacao) return;
+
+            const carnes = Object.keys(Object.values(dadosComparacao)[0]);
+            const dados = Object.entries(dadosComparacao).map(([nutriente, valores]) => {
+                const row = { Nutriente: nutriente.replace('_', ' ').toUpperCase() };
+                carnes.forEach(carne => {
+                    const valor = valores[carne];
+                    row[carne] = valor && valor.valor !== null ? valor.valor.toFixed(1) : 'N/A';
+                });
+                return row;
+            });
+
+            const ws = XLSX.utils.json_to_sheet(dados);
             const wb = XLSX.utils.book_new();
-            const ws = XLSX.utils.table_to_sheet(document.getElementById('tabelaComparacao'));
-            XLSX.utils.book_append_sheet(wb, ws, "Comparação");
-            XLSX.writeFile(wb, "comparacao-nutricional.xlsx");
+            XLSX.utils.book_append_sheet(wb, ws, 'Comparação');
+            XLSX.writeFile(wb, 'comparacao_nutricional.xlsx');
         }
 
-        inicializar();
+        function exportarRankingPDF() {
+            if (!dadosRanking) return;
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            const nutriente = document.getElementById('nutrienteSelect').value;
+            doc.text(`Ranking - ${nutriente.replace('_', ' ').toUpperCase()}`, 14, 15);
+
+            const dados = dadosRanking.map((item, index) => [
+                index + 1,
+                item.nome,
+                item.valor !== null ? item.valor.toFixed(1) : 'N/A'
+            ]);
+
+            doc.autoTable({
+                head: [['Posição', 'Carne', 'Valor']],
+                body: dados,
+                startY: 25
+            });
+
+            doc.save('ranking_nutricional.pdf');
+        }
+
+        function exportarRankingExcel() {
+            if (!dadosRanking) return;
+
+            const dados = dadosRanking.map((item, index) => ({
+                Posição: index + 1,
+                Carne: item.nome,
+                Valor: item.valor !== null ? item.valor.toFixed(1) : 'N/A'
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(dados);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Ranking');
+            XLSX.writeFile(wb, 'ranking_nutricional.xlsx');
+        }
+
+        function exportarSugestoesPDF() {
+            if (!dadosSugestoes) return;
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            const objetivo = document.getElementById('objetivoSelect').value;
+            doc.text(`Sugestões para ${objetivo.toUpperCase()}`, 14, 15);
+
+            const dados = dadosSugestoes.map((item, index) => [
+                index + 1,
+                item.nome,
+                item.pontuacao.toFixed(2)
+            ]);
+
+            doc.autoTable({
+                head: [['Posição', 'Carne', 'Pontuação']],
+                body: dados,
+                startY: 25
+            });
+
+            doc.save('sugestoes_nutricionais.pdf');
+        }
+
+        function exportarSugestoesExcel() {
+            if (!dadosSugestoes) return;
+
+            const dados = dadosSugestoes.map((item, index) => ({
+                Posição: index + 1,
+                Carne: item.nome,
+                Pontuação: item.pontuacao.toFixed(2)
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(dados);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Sugestões');
+            XLSX.writeFile(wb, 'sugestoes_nutricionais.xlsx');
+        }
+
+        function toggleTheme() {
+            const html = document.documentElement;
+            const themeIcon = document.getElementById('themeIcon');
+
+            if (html.getAttribute('data-bs-theme') === 'dark') {
+                html.setAttribute('data-bs-theme', 'light');
+                themeIcon.textContent = '🌙';
+            } else {
+                html.setAttribute('data-bs-theme', 'dark');
+                themeIcon.textContent = '☀️';
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            inicializar();
+
+            // Add form submit event listener for the calculator
+            document.getElementById('calculadoraForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+
+                const peso = parseFloat(document.getElementById('peso').value);
+                const altura = parseFloat(document.getElementById('altura').value);
+                const idade = parseFloat(document.getElementById('idade').value);
+                const sexo = document.getElementById('sexo').value;
+                const atividade = parseFloat(document.getElementById('atividade').value);
+
+                let tmb;
+                if (sexo === 'M') {
+                    tmb = (10 * peso) + (6.25 * altura) - (5 * idade) + 5;
+                } else {
+                    tmb = (10 * peso) + (6.25 * altura) - (5 * idade) - 161;
+                }
+
+                const necessidadeCalorica = tmb * atividade;
+
+                document.getElementById('tmb').textContent = `${Math.round(tmb)} kcal`;
+                document.getElementById('necessidadeCalorica').textContent = `${Math.round(necessidadeCalorica)} kcal`;
+                document.getElementById('resultadoCalculadora').style.display = 'block';
+            });
+        });
     </script>
 </body>
 </html>
